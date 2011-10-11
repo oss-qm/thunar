@@ -154,8 +154,17 @@ thunarx_provider_factory_load_modules (ThunarxProviderFactory *factory)
   GList                 *modules = NULL;
   GList                 *lp;
   GDir                  *dp;
+  gsize                  i;
+  const gchar           *thunarx_dirs[] =
+                          {
+                            THUNARX_DIRECTORY,
+                            "/usr/lib/thunarx-2"
+                          };
 
-  dp = g_dir_open (THUNARX_DIRECTORY, 0, NULL);
+  /* Search both multiarch and non-multiarch THUNARX_DIRECTORYs */
+  for (i = 0; i < G_N_ELEMENTS (thunarx_dirs); ++i)
+  {
+  dp = g_dir_open (thunarx_dirs[i], 0, NULL);
   if (G_LIKELY (dp != NULL))
     {
       /* determine the types for all existing plugins */
@@ -201,6 +210,7 @@ thunarx_provider_factory_load_modules (ThunarxProviderFactory *factory)
 
       g_dir_close (dp);
     }
+  }
 
   return modules;
 }
