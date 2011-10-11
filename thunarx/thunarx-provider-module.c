@@ -178,6 +178,12 @@ thunarx_provider_module_load (GTypeModule *type_module)
 
   /* load the module using the runtime link editor */
   path = g_build_filename (THUNARX_DIRECTORY, type_module->name, NULL);
+  if (!g_file_test (path, G_FILE_TEST_EXISTS))
+    {
+      /* if it doesn't exist in the default dir, try non-multiarch THUNARX_DIRECTORY */
+      g_free (path);
+      path = g_build_filename ("/usr/lib/thunarx-2", type_module->name, NULL);
+    }
   module->library = g_module_open (path, G_MODULE_BIND_LAZY | G_MODULE_BIND_LOCAL);
   g_free (path);
 
