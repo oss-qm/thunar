@@ -39,7 +39,6 @@ desktop_in_files = thunar-tpa.desktop.in
 desktop_DATA = $(desktop_in_files:.desktop.in=.desktop)
 @INTLTOOL_DESKTOP_RULE@
 
-if MAINTAINER_MODE
 BUILT_SOURCES =								\
 	thunar-tpa-bindings.h
 
@@ -48,7 +47,6 @@ DISTCLEANFILES =							\
 
 thunar-tpa-bindings.h: $(srcdir)/thunar-tpa-bindings.xml Makefile
 	$(AM_V_GEN) dbus-binding-tool --prefix=thunar_tpa_dbus --mode=glib-client $(srcdir)/thunar-tpa-bindings.xml > thunar-tpa-bindings.h
-endif
 
 EXTRA_DIST =								\
 	$(desktop_in_files)						\

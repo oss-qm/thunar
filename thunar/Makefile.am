@@ -293,7 +293,6 @@ clean-local:
 DISTCLEANFILES =							\
 	thunar-settings.desktop
 
-if MAINTAINER_MODE
 CLEANFILES =								\
 	xgen-tmc							\
 	xgen-tmh
@@ -382,7 +381,6 @@ thunar-marshal.c: thunar-marshal.list Makefile
 		&& cp xgen-tmc thunar-marshal.c \
 		&& rm -f xgen-tmc \
 	)
-endif
 
 EXTRA_DIST =								\
 	thunar-abstract-icon-view-ui.xml				\
