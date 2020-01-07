@@ -14,8 +14,8 @@ override_dh_auto_configure:
 	dh_auto_configure -- \
 		--docdir=\$${prefix}/share/doc/thunar-data \
 		--disable-silent-rules \
-		--enable-dbus --enable-startup-notification --enable-apr-plugin \
-		--enable-exif --enable-pcre --enable-sbr-plugin --enable-tpa-plugin \
+		--disable-dbus --enable-startup-notification --enable-apr-plugin \
+		--enable-exif --enable-pcre --enable-sbr-plugin --disable-tpa-plugin \
 		--enable-uca-plugin
 
 override_dh_install:
@@ -25,8 +25,7 @@ override_dh_install:
 	chrpath -d -k $(CURDIR)/debian/tmp/usr/bin/Thunar \
 		$(CURDIR)/debian/tmp/usr/lib/$(DEB_HOST_MULTIARCH)/Thunar/thunar-* \
 		$(CURDIR)/debian/tmp/usr/lib/$(DEB_HOST_MULTIARCH)/libthunar*.so.*0 \
-		$(CURDIR)/debian/tmp/usr/lib/$(DEB_HOST_MULTIARCH)/thunarx-2/thunar-apr.so \
-		$(CURDIR)/debian/tmp/usr/lib/$(DEB_HOST_MULTIARCH)/xfce4/panel/plugins/libthunar-tpa.so
+		$(CURDIR)/debian/tmp/usr/lib/$(DEB_HOST_MULTIARCH)/thunarx-2/thunar-apr.so
 	dh_install --fail-missing -X usr/lib/$(DEB_HOST_MULTIARCH)/xfce4/panel/plugins/libthunar-tpa.la
 
 override_dh_installdocs:
@@ -38,7 +37,7 @@ override_dh_strip:
 
 override_dh_shlibdeps:
 	dh_shlibdeps -X debian/thunar/usr/lib/$(DEB_HOST_MULTIARCH)/xfce4/panel/plugins/libthunar-tpa.so -- \
-    -dRecommends debian/thunar/usr/lib/$(DEB_HOST_MULTIARCH)/xfce4/panel/plugins/libthunar-tpa.so -dDepends
+    -dDepends
 
 override_dh_makeshlibs:
 	dh_makeshlibs -p libthunarx-2-0 -X debian/libthunarx-2-0/usr/lib/$(DEB_HOST_MULTIARCH)/thunarx-2
