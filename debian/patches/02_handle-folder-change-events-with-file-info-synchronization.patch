@@ -1,0 +1,300 @@
+From: Roy Richardson <rocketx86>
+Date: Sat, 19 Aug 2016 10:14:48 +0100
+Subject: Handle folder change events with file info synchronization
+Origin: https://bugzilla.xfce.org/attachment.cgi?id=6779
+Upstream-bug: https://bugzilla.xfce.org/show_bug.cgi?id=12264
+
+diff -up a/thunar/thunar-file.c b/thunar/thunar-file.c
+--- a/thunar/thunar-file.c	2015-05-22 13:25:36.000000000 +0000
++++ b/thunar/thunar-file.c	2016-08-20 10:04:15.196666669 +0000
+@@ -121,6 +121,7 @@ static gboolean           thunar_file_sa
+ 
+ G_LOCK_DEFINE_STATIC (file_cache_mutex);
+ G_LOCK_DEFINE_STATIC (file_content_type_mutex);
++G_LOCK_DEFINE_STATIC (file_info_mutex);
+ 
+ 
+ 
+@@ -699,7 +700,7 @@ thunar_file_move_thumbnail_cache_file (G
+ 
+ 
+ static void
+-thunar_file_monitor_moved (ThunarFile *file,
++thunar_file_renamed (ThunarFile *file,
+                            GFile      *renamed_file)
+ {
+   GFile *previous_file;
+@@ -777,12 +778,6 @@ thunar_file_monitor (GFileMonitor     *m
+ 
+   if (g_file_equal (event_path, file->gfile))
+     {
+-      /* the event occurred for the monitored ThunarFile */
+-      if (event_type == G_FILE_MONITOR_EVENT_MOVED)
+-        {
+-          thunar_file_monitor_moved (file, other_path);
+-          return;
+-        }
+ 
+       if (G_LIKELY (event_path))
+           thunar_file_monitor_update (event_path, event_type);
+@@ -792,26 +787,7 @@ thunar_file_monitor (GFileMonitor     *m
+       /* The event did not occur for the monitored ThunarFile, but for
+          a file that is contained in ThunarFile which is actually a
+          directory. */
+-      if (event_type == G_FILE_MONITOR_EVENT_MOVED)
+-        {
+-          /* reload the target file if cached */
+-          other_file = thunar_file_cache_lookup (other_path);
+-          if (other_file)
+-              thunar_file_reload (other_file);
+-          else
+-              other_file = thunar_file_get (other_path, NULL);
+ 
+-          if (!other_file)
+-              return;
+-
+-          /* notify the thumbnail cache that we can now also move the thumbnail */
+-          thunar_file_move_thumbnail_cache_file (event_path, other_path);
+-
+-          /* reload the containing target folder */
+-          thunar_file_reload_parent (other_file);
+-
+-          g_object_unref (other_file);
+-        }
+       return;
+     }
+ }
+@@ -850,8 +826,9 @@ thunar_file_watch_reconnect (ThunarFile
+           g_object_unref (file_watch->monitor);
+         }
+ 
+-      /* create a file or directory monitor */
+-      file_watch->monitor = g_file_monitor (file->gfile, G_FILE_MONITOR_WATCH_MOUNTS | G_FILE_MONITOR_SEND_MOVED, NULL, NULL);
++      /* create a file monitor */
++      file_watch->monitor = g_file_monitor (file->gfile, G_FILE_MONITOR_WATCH_MOUNTS, NULL, NULL);
++      
+       if (G_LIKELY (file_watch->monitor != NULL))
+         {
+           /* watch monitor for file changes */
+@@ -1085,6 +1062,9 @@ thunar_file_get_async_finish (GObject
+ 
+   _thunar_return_if_fail (G_IS_FILE (location));
+   _thunar_return_if_fail (G_IS_ASYNC_RESULT (result));
++  
++  /* setup lock to begin changes to file info */
++  G_LOCK (file_info_mutex);
+ 
+   /* finish querying the file information */
+   file_info = g_file_query_info_finish (location, result, &error);
+@@ -1126,6 +1106,9 @@ thunar_file_get_async_finish (GObject
+   /* release the file, see description in ThunarFileGetFunc */
+   g_object_unref (file);
+ 
++  /* release lock on finished changes to file info */
++  G_UNLOCK (file_info_mutex);
++
+   /* free the error, if there is any */
+   if (error != NULL)
+     g_error_free (error);
+@@ -1164,6 +1147,9 @@ thunar_file_load (ThunarFile   *file,
+   _thunar_return_val_if_fail (cancellable == NULL || G_IS_CANCELLABLE (cancellable), FALSE);
+   _thunar_return_val_if_fail (G_IS_FILE (file->gfile), FALSE);
+ 
++  /* setup lock to begin changes to file info */
++  G_LOCK (file_info_mutex);
++
+   /* reset the file */
+   thunar_file_info_clear (file);
+ 
+@@ -1185,6 +1171,9 @@ thunar_file_load (ThunarFile   *file,
+       g_clear_error (&err);
+    }
+ 
++  /* release lock on finished changes to file info */
++  G_UNLOCK (file_info_mutex);
++
+   if (err != NULL)
+     {
+       g_propagate_error (error, err);
+@@ -1299,6 +1288,9 @@ thunar_file_get_with_info (GFile     *gf
+       file = g_object_new (THUNAR_TYPE_FILE, NULL);
+       file->gfile = g_object_ref (gfile);
+ 
++      /* setup lock to begin changes to file info */
++      G_LOCK (file_info_mutex);
++      
+       /* reset the file */
+       thunar_file_info_clear (file);
+ 
+@@ -1311,6 +1303,9 @@ thunar_file_get_with_info (GFile     *gf
+       /* update the mounted info */
+       if (not_mounted)
+         FLAG_UNSET (file, THUNAR_FILE_FLAG_IS_MOUNTED);
++      
++      /* release lock on finished changes to file info */
++      G_UNLOCK (file_info_mutex);
+ 
+       /* setup lock until the file is inserted */
+       G_LOCK (file_cache_mutex);
+@@ -1932,8 +1927,8 @@ thunar_file_rename (ThunarFile   *file,
+       /* check if we succeeded */
+       if (renamed_file != NULL)
+         {
+-          /* notify the file is renamed */
+-          thunar_file_monitor_moved (file, renamed_file);
++          /* the file is renamed */
++          thunar_file_renamed (file, renamed_file);
+ 
+           g_object_unref (G_OBJECT (renamed_file));
+ 
+@@ -3851,8 +3846,8 @@ thunar_file_watch (ThunarFile *file)
+       file_watch = g_slice_new (ThunarFileWatch);
+       file_watch->watch_count = 1;
+ 
+-      /* create a file or directory monitor */
+-      file_watch->monitor = g_file_monitor (file->gfile, G_FILE_MONITOR_WATCH_MOUNTS | G_FILE_MONITOR_SEND_MOVED, NULL, NULL);
++      /* create a file monitor */
++      file_watch->monitor = g_file_monitor (file->gfile, G_FILE_MONITOR_WATCH_MOUNTS, NULL, NULL);
+       if (G_LIKELY (file_watch->monitor != NULL))
+         {
+           /* watch monitor for file changes */
+diff -up a/thunar/thunar-folder.c b/thunar/thunar-folder.c
+--- a/thunar/thunar-folder.c	2015-05-22 13:25:36.000000000 +0000
++++ b/thunar/thunar-folder.c	2016-08-20 10:01:40.786666669 +0000
+@@ -569,7 +569,7 @@ thunar_folder_finished (ExoJob       *jo
+ 
+   /* add us to the file alteration monitor */
+   folder->monitor = g_file_monitor_directory (thunar_file_get_file (folder->corresponding_file),
+-                                              G_FILE_MONITOR_SEND_MOVED, NULL, NULL);
++                                              G_FILE_MONITOR_WATCH_MOVES, NULL, NULL);
+   if (G_LIKELY (folder->monitor != NULL))
+     g_signal_connect (folder->monitor, "changed", G_CALLBACK (thunar_folder_monitor), folder);
+ 
+@@ -713,6 +713,7 @@ thunar_folder_monitor (GFileMonitor
+   ThunarFolder *folder = THUNAR_FOLDER (user_data);
+   ThunarFile   *file;
+   ThunarFile   *other_parent;
++  ThunarFile   *destroyed;
+   GList        *lp;
+   GList         list;
+   gboolean      restart = FALSE;
+@@ -723,40 +724,47 @@ thunar_folder_monitor (GFileMonitor
+   _thunar_return_if_fail (folder->job == NULL);
+   _thunar_return_if_fail (THUNAR_IS_FILE (folder->corresponding_file));
+   _thunar_return_if_fail (G_IS_FILE (event_file));
+-
++              
+   /* check on which file the event occurred */
++  /* if the event_file is not the folders corresponding file */
+   if (!g_file_equal (event_file, thunar_file_get_file (folder->corresponding_file)))
+     {
+       /* check if we already ship the file */
+       for (lp = folder->files; lp != NULL; lp = lp->next)
+         if (g_file_equal (event_file, thunar_file_get_file (lp->data)))
+-          break;
++          break; 
+ 
+       /* stop the content type collector */
+       if (folder->content_type_idle_id != 0)
+         restart = g_source_remove (folder->content_type_idle_id);
+ 
+-      /* if we don't have it, add it if the event is not an "deleted" event */
+-      if (G_UNLIKELY (lp == NULL && event_type != G_FILE_MONITOR_EVENT_DELETED))
++      /* 
++       * if we don't have the file and event type is created or moved in.
++       */
++      if (lp == NULL)
+         {
+-          /* allocate a file for the path */
+-          file = thunar_file_get (event_file, NULL);
+-          if (G_UNLIKELY (file != NULL))
++          if (event_type == G_FILE_MONITOR_EVENT_CREATED 
++          || event_type == G_FILE_MONITOR_EVENT_MOVED_IN)
+             {
+-              /* prepend it to our internal list */
+-              folder->files = g_list_prepend (folder->files, file);
+-
+-              /* tell others about the new file */
+-              list.data = file; list.next = list.prev = NULL;
+-              g_signal_emit (G_OBJECT (folder), folder_signals[FILES_ADDED], 0, &list);
++            /* allocate a file for the path */
++            file = thunar_file_get (event_file, NULL);
++            
++            if (file != NULL)
++              {
++                /* prepend it to our internal list */
++                folder->files = g_list_prepend (folder->files, file);
++
++                /* tell others about the new file */
++                list.data = file; list.next = list.prev = NULL;
++                g_signal_emit (G_OBJECT (folder), folder_signals[FILES_ADDED], 0, &list);
++              }
+             }
+         }
+-      else if (lp != NULL)
++      else /* lp != NULL we have the file */
+         {
+-          if (event_type == G_FILE_MONITOR_EVENT_DELETED)
++          if (event_type == G_FILE_MONITOR_EVENT_DELETED 
++          || event_type == G_FILE_MONITOR_EVENT_MOVED_OUT)
+             {
+-              ThunarFile *destroyed;
+-
+               /* destroy the file */
+               thunar_file_destroy (lp->data);
+ 
+@@ -768,27 +776,44 @@ thunar_folder_monitor (GFileMonitor
+                   g_object_unref (destroyed);
+                 }
+             }
+-
+-          else if (event_type == G_FILE_MONITOR_EVENT_MOVED)
++          else if (event_type == G_FILE_MONITOR_EVENT_RENAMED)
+             {
+-              /* destroy the old file and update the new one */
++              /* destroy the old file */
+               thunar_file_destroy (lp->data);
++
++              /* if the file has not been destroyed by now, reload it to invalidate it */
++              destroyed = thunar_file_cache_lookup (event_file);
++              if (destroyed != NULL)
++                {
++                  thunar_file_reload (destroyed);
++                  g_object_unref (destroyed);
++                }
++              
++              /* update the new one */
+               file = thunar_file_get(other_file, NULL);
++              
+               if (file != NULL && THUNAR_IS_FILE (file))
+                 {
+                   thunar_file_reload (file);
+ 
+-                  /* if source and target folders are different, also tell
+-                     the target folder to reload for the changes */
++                  /* 
++                   * if source and target folders are different, also tell
++                   * the target folder to reload for the changes 
++                   */
+                   if (thunar_file_has_parent (file))
+                     {
+                       other_parent = thunar_file_get_parent (file, NULL);
+-                      if (other_parent &&
+-                          !g_file_equal (thunar_file_get_file(folder->corresponding_file),
+-                                         thunar_file_get_file(other_parent)))
++                      if (other_parent != NULL)
+                         {
+-                          thunar_file_reload (other_parent);
+-                          g_object_unref (other_parent);
++                          if (!g_file_equal (
++                            thunar_file_get_file (folder->corresponding_file),
++                            thunar_file_get_file (other_parent)))
++                            {
++                              thunar_file_reload (other_parent);
++                            }
++                          
++                          /* drop reference on the other parent */
++                          g_object_unref (other_parent);                           
+                         }
+                     }
+ 
