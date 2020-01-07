@@ -279,7 +279,6 @@ clean-local:
 DISTCLEANFILES =							\
 	thunar-settings.desktop
 
-if MAINTAINER_MODE
 CLEANFILES =								\
 	xgen-tmc							\
 	xgen-tmh
@@ -357,7 +356,6 @@ thunar-resources.c: thunar.gresource.xml
 
 thunar-resources.h: thunar.gresource.xml
 	glib-compile-resources --target=$@ --sourcedir=$(srcdir) --generate-header --c-name thunar $(srcdir)/thunar.gresource.xml
-endif
 
 EXTRA_DIST =								\
 	thunar-abstract-icon-view-ui.xml		\
