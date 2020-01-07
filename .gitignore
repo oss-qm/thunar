@@ -124,6 +124,9 @@ thunarx/*.gir
 thunarx/*.typelib
 thunarx/thunarx-alias*.[ch]
 thunarx/thunarx-config.h
+thunarx/test-suite.log
+thunarx/abicheck.sh.log
+thunarx/abicheck.sh.trs
 *.o
 *.lo
 *.la
