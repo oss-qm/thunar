@@ -2928,8 +2928,8 @@ gboolean
 thunar_file_is_executable (const ThunarFile *file)
 {
   ThunarPreferences *preferences;
-  gboolean           can_execute = FALSE;
   gboolean           exec_shell_scripts = FALSE;
+  gboolean           exec_programs = FALSE;
   const gchar       *content_type;
 
   _thunar_return_val_if_fail (THUNAR_IS_FILE (file), FALSE);
@@ -2937,31 +2937,38 @@ thunar_file_is_executable (const ThunarFile *file)
   if (file->info == NULL)
     return FALSE;
 
-  if (g_file_info_get_attribute_boolean (file->info, G_FILE_ATTRIBUTE_ACCESS_CAN_EXECUTE))
-    {
-      /* get the content type of the file */
-      content_type = thunar_file_get_content_type (THUNAR_FILE (file));
-      if (G_LIKELY (content_type != NULL))
-        {
-          can_execute = g_content_type_can_be_executable (content_type);
+  if (thunar_file_is_desktop_file (file, NULL))
+    return TRUE;
 
-          if (can_execute)
-            {
-              /* check if the shell scripts should be executed or opened by default */
-              preferences = thunar_preferences_get ();
-              g_object_get (preferences, "misc-exec-shell-scripts-by-default", &exec_shell_scripts, NULL);
-              g_object_unref (preferences);
+  if (!g_file_info_get_attribute_boolean (file->info, G_FILE_ATTRIBUTE_ACCESS_CAN_EXECUTE))
+    return FALSE;
 
-              /* do never execute plain text files which are not shell scripts but marked executable */
-              if (g_strcmp0 (content_type, "text/plain") == 0)
-                  can_execute = FALSE;
-              else if (g_content_type_is_a (content_type, "text/plain") && ! exec_shell_scripts)
-                  can_execute = FALSE;
-            }
-        }
-    }
+  /* get the content type of the file */
+  content_type = thunar_file_get_content_type (THUNAR_FILE (file));
+  if (G_UNLIKELY (content_type == NULL))
+    return FALSE;
 
-  return can_execute || thunar_file_is_desktop_file (file, NULL);
+  if (!g_content_type_can_be_executable (content_type))
+    return FALSE;
+
+  /* check if the shell scripts should be executed or opened by default */
+  preferences = thunar_preferences_get ();
+  g_object_get (preferences, "misc-exec-shell-scripts-by-default", &exec_shell_scripts, NULL);
+  g_object_get (preferences, "misc-exec-programs-by-default", &exec_programs, NULL);
+  g_object_unref (preferences);
+
+  /* security: do never open exec programs (scripts or binaries), unless explicitly enabled */
+  if (!exec_programs)
+    return FALSE;
+
+  /* do never execute plain text files which are not shell scripts but marked executable */
+  if (g_strcmp0 (content_type, "text/plain") == 0)
+    return FALSE;
+
+  if (g_content_type_is_a (content_type, "text/plain") && ! exec_shell_scripts)
+    return FALSE;
+
+  return TRUE;
 }
 
 
