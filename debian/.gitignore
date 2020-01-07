@@ -1,0 +1,11 @@
+/.debhelper/
+/debhelper-build-stamp
+/files
+/libthunarx-2-0/
+/libthunarx-2-dev/
+/thunar-data/
+/thunar-dbg/
+/thunar/
+/tmp/
+*.substvars
+*.debhelper.log
