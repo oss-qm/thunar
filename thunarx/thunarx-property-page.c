@@ -215,8 +215,11 @@ thunarx_property_page_destroy (GtkWidget *object, GdkEventAny *event)
       g_object_unref (G_OBJECT (property_page->priv->label_widget));
       property_page->priv->label_widget = NULL;
     }
-
+#if GTK_CHECK_VERSION(3,0,0)
   (*GTK_WIDGET_CLASS (thunarx_property_page_parent_class)->destroy) (object);
+#else
+  (*GTK_WIDGET_CLASS (thunarx_property_page_parent_class)->destroy_event) (object, event);
+#endif
 }
 
 
