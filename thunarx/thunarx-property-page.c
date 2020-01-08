@@ -76,7 +76,7 @@ static void thunarx_property_page_set_property  (GObject                  *objec
 #if GTK_CHECK_VERSION(3,0,0)
 static void thunarx_property_page_destroy       (GtkWidget                *object);
 #else
-static void thunarx_property_page_destroy       (GtkWidget                *object,
+static gboolean thunarx_property_page_destroy   (GtkWidget                *object,
                                                  GdkEventAny              *event);
 #endif
 
@@ -199,10 +199,11 @@ thunarx_property_page_set_property (GObject      *object,
 
 
 
-static void
 #if GTK_CHECK_VERSION(3,0,0)
+static void
 thunarx_property_page_destroy (GtkWidget *object)
 #else
+static gboolean
 thunarx_property_page_destroy (GtkWidget *object, GdkEventAny *event)
 #endif
 {
@@ -218,7 +219,7 @@ thunarx_property_page_destroy (GtkWidget *object, GdkEventAny *event)
 #if GTK_CHECK_VERSION(3,0,0)
   (*GTK_WIDGET_CLASS (thunarx_property_page_parent_class)->destroy) (object);
 #else
-  (*GTK_WIDGET_CLASS (thunarx_property_page_parent_class)->destroy_event) (object, event);
+  return (*GTK_WIDGET_CLASS (thunarx_property_page_parent_class)->destroy_event) (object, event);
 #endif
 }
 
