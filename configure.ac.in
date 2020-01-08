@@ -115,17 +115,16 @@ AC_SYS_LARGEFILE()
 dnl **********************************
 dnl *** Check for standard headers ***
 dnl **********************************
-AC_CHECK_HEADERS([ctype.h errno.h fcntl.h grp.h limits.h locale.h memory.h \
-                  paths.h pwd.h sched.h signal.h stdarg.h stdlib.h string.h \
-                  sys/mman.h sys/param.h sys/stat.h sys/time.h sys/types.h \
-                  sys/uio.h sys/wait.h time.h])
+AC_CHECK_HEADERS([errno.h fcntl.h grp.h limits.h locale.h memory.h \
+                  paths.h pwd.h signal.h stdarg.h stdlib.h string.h \
+                  sys/param.h sys/stat.h sys/types.h \
+                  sys/wait.h time.h])
 
 dnl ************************************
 dnl *** Check for standard functions ***
 dnl ************************************
-AC_FUNC_MMAP()
-AC_CHECK_FUNCS([localeconv mkdtemp pread pwrite sched_yield setgroupent \
-                setpassent strcoll strlcpy strptime symlink atexit])
+AC_CHECK_FUNCS([mkdtemp setgroupent \
+                setpassent strlcpy strptime symlink atexit])
 
 dnl ******************************
 dnl *** Check for i18n support ***
