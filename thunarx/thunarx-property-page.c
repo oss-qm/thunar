@@ -72,7 +72,13 @@ static void thunarx_property_page_set_property  (GObject                  *objec
                                                  guint                     prop_id,
                                                  const GValue             *value,
                                                  GParamSpec               *pspec);
+
+#if GTK_CHECK_VERSION(3,0,0)
 static void thunarx_property_page_destroy       (GtkWidget                *object);
+#else
+static void thunarx_property_page_destroy       (GtkWidget                *object,
+                                                 GdkEventAny              *event);
+#endif
 
 
 
@@ -98,7 +104,11 @@ thunarx_property_page_class_init (ThunarxPropertyPageClass *klass)
   gobject_class->set_property = thunarx_property_page_set_property;
 
   gtkwidget_class = GTK_WIDGET_CLASS (klass);
+#if GTK_CHECK_VERSION(3,0,0)
   gtkwidget_class->destroy = thunarx_property_page_destroy;
+#else
+  gtkwidget_class->destroy_event = thunarx_property_page_destroy;
+#endif
 
   /**
    * ThunarxPropertyPage::label:
@@ -190,7 +200,11 @@ thunarx_property_page_set_property (GObject      *object,
 
 
 static void
+#if GTK_CHECK_VERSION(3,0,0)
 thunarx_property_page_destroy (GtkWidget *object)
+#else
+thunarx_property_page_destroy (GtkWidget *object, GdkEventAny *event)
+#endif
 {
   ThunarxPropertyPage *property_page = THUNARX_PROPERTY_PAGE (object);
 
