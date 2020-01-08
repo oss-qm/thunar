@@ -42,7 +42,7 @@
 #include <thunar/thunar-session-client.h>
 #include <thunar/thunar-preferences.h>
 
-
+#include <gtk/gtkapplication.h>
 
 static void
 thunar_terminate_running_thunar (void)
