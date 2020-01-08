@@ -1,3 +1,10 @@
+thunar (1.6.18-1) unstable; urgency=medium
+
+  * New upstream release.
+  * removed unnecessary dbus dependency
+
+ -- Enrico Weigelt, metux IT consult <info@metux.net>  Wed, 08 Jan 2020 21:30:40 +0100
+
 thunar (1.6.11-1) unstable; urgency=medium
 
   * New upstream release.
